@@ -3,23 +3,24 @@ import cv2
 import glob
 import numpy as np
 from typing import List
-import constants as constants
 from keras import models, losses, optimizers
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
 from model_architecture import model_architecture
 
-np.random.seed(constants.SEED_VALUE)
-os.environ[constants.TF_CPP_MIN_LOG_LEVEL] = constants.TF_CPP_MIN_LOG_LEVEL_VALUE
-
+SEED_VALUE = 1337
 MODEL_NAME = 'model.h5'
 MODEL_PATH = './model/'
 DATASET_PATH = './dataset/'
 MODEL_JSON_NAME = 'model.json'
+TF_CPP_MIN_LOG_LEVEL_VALUE = '2'
 MODEL_WEIGHTS_NAME = 'model_weights.h5'
+TF_CPP_MIN_LOG_LEVEL = 'TF_CPP_MIN_LOG_LEVEL'
 ACTIVITIES = ['sitting', 'standing', 'walking']
 
+np.random.seed(SEED_VALUE)
 label_binarizer = LabelBinarizer()
+os.environ[TF_CPP_MIN_LOG_LEVEL] = TF_CPP_MIN_LOG_LEVEL_VALUE
 
 class Data(object):
 
@@ -65,7 +66,6 @@ def load_data() -> TrainTestData:
         label = path.split(os.path.sep)[-1]
 
         for image_path in glob.glob(path + '/*.png'):
-            print(image_path)
             img = cv2.resize(cv2.imread(image_path), (100, 37))
             X.append(img)
             Y.append(label)
@@ -92,7 +92,7 @@ def train_model(TrainTestData: TrainTestData) -> models.Sequential():
         TrainTestData.trainX,
         TrainTestData.trainY,
         validation_data=(TrainTestData.testX, TrainTestData.testY),
-        epochs=2,
+        epochs=40,
         batch_size=32)
 
     # Check accuracy
