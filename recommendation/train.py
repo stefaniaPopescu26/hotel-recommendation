@@ -1,9 +1,8 @@
 import os
-import cv2 
+import cv2
+import glob
 import numpy as np
-from os import listdir
 from typing import List
-from keras.models import load_model
 import constants as constants
 from keras import models, losses, optimizers
 from sklearn.preprocessing import LabelBinarizer
@@ -13,23 +12,73 @@ from model_architecture import model_architecture
 np.random.seed(constants.SEED_VALUE)
 os.environ[constants.TF_CPP_MIN_LOG_LEVEL] = constants.TF_CPP_MIN_LOG_LEVEL_VALUE
 
-label_binarizer = LabelBinarizer()
-
+MODEL_NAME = 'model.h5'
+MODEL_PATH = './model/'
+DATASET_PATH = './dataset/'
+MODEL_JSON_NAME = 'model.json'
+MODEL_WEIGHTS_NAME = 'model_weights.h5'
 ACTIVITIES = ['sitting', 'standing', 'walking']
 
-def prepare_data(data: data) -> train_test_data:
-    X = np.array(data.X)
-    Y = np.array(data.Y)
+label_binarizer = LabelBinarizer()
+
+class Data(object):
+
+    def __init__(self) -> None:
+        self.X = []
+        self.Y = []
+
+    def __init__(self, X: List, Y: List) -> None:
+        self.X = X
+        self.Y = Y
+
+    def __del__(self) -> None:
+        del self.X
+        del self.Y
+
+
+class TrainTestData(object):
+
+    def __init__(self) -> None:
+        self.trainX = []
+        self.testX = []
+        self.trainY = []
+        self.testY = []
+
+    def __init__(self, trainX: List, testX: List, trainY: List, testY: List) -> None:
+        self.trainX = trainX
+        self.testX = testX
+        self.trainY = trainY
+        self.testY = testY
+
+    def __del__(self) -> None:
+        del self.trainX
+        del self.testX
+        del self.trainY
+        del self.testY
+
+
+def load_data() -> TrainTestData:
+    X = []
+    Y = []
+    for activity in ACTIVITIES:
+        path = DATASET_PATH + activity
+        label = path.split(os.path.sep)[-1]
+
+        for image_path in glob.glob(path + '/*.png'):
+            print(image_path)
+            img = cv2.resize(cv2.imread(image_path), (100, 37))
+            X.append(img)
+            Y.append(label)
+
+    X = np.array(X)
+    Y = np.array(Y)
     Y = label_binarizer.fit_transform(Y)
     (trainX, testX, trainY, testY) = train_test_split(X, Y)
-    print(len(trainX))
-    print(len(testX))
-    print(len(trainY))
-    print(len(testY))
 
-    return train_test_data(trainX, testX, trainY, testY)
+    return TrainTestData(trainX, testX, trainY, testY)
 
-def train_model(train_test_data: train_test_data) -> models.Sequential():
+
+def train_model(TrainTestData: TrainTestData) -> models.Sequential():
     # Model architecture
     model = model_architecture().construct()
     model.summary()
@@ -40,45 +89,31 @@ def train_model(train_test_data: train_test_data) -> models.Sequential():
 
     # Train model
     model.fit(
-        train_test_data.trainX,
-        train_test_data.trainY,
-        validation_data=(train_test_data.testX, train_test_data.testY),
-        epochs = 200,
-        batch_size = 32)
+        TrainTestData.trainX,
+        TrainTestData.trainY,
+        validation_data=(TrainTestData.testX, TrainTestData.testY),
+        epochs=2,
+        batch_size=32)
 
     # Check accuracy
-    _, accuracy = model.evaluate(train_test_data.testX, train_test_data.testY)
+    _, accuracy = model.evaluate(TrainTestData.testX, TrainTestData.testY)
     print('Accuracy: %.2f' % (accuracy * 100))
     return model
 
+
 def save_model(model: models.Sequential()) -> None:
     model_json = model.to_json()
-    with open(constants.MODEL_PATH + constants.MODEL_JSON_NAME, 'w') as json_file:
+    with open(MODEL_PATH + MODEL_JSON_NAME, 'w') as json_file:
         json_file.write(model_json)
-    model.save_weights(constants.MODEL_PATH + constants.MODEL_WEIGHTS_NAME)
-    model.save(constants.MODEL_PATH + constants.MODEL_NAME)
+    model.save_weights(MODEL_PATH + MODEL_WEIGHTS_NAME)
+    model.save(MODEL_PATH + MODEL_NAME)
 
-folder='dataset/'
-
-def load_data():
-    images = []
-    for activity in ACTIVITIES:
-        path = folder + activity
-        print(path)
-        for filename in os.listdir(path):
-            img = cv2.imread(os.path.join(folder, filename))
-            if img is not None:
-                images.append(img)
-    return images
 
 def main() -> None:
-    print('starting...')
-    data = load_data()
-
-    data = generate_data()
-    train_test_data = prepare_data(data)
+    train_test_data = load_data()
     model = train_model(train_test_data)
     save_model(model)
+
 
 if __name__ == '__main__':
     main()
